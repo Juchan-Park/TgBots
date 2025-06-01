@@ -335,6 +335,14 @@ class TelegramForwarderBot:
             if message.from_user:
                 logger.info(f"👤 발신자: @{message.from_user.username or 'N/A'} ({message.from_user.first_name})")
                 logger.info(f"🤖 봇 여부: {message.from_user.is_bot}")
+                logger.info(f"🆔 사용자 ID: {message.from_user.id}")
+                
+                # 발신자의 권한 확인
+                try:
+                    chat_member = await context.bot.get_chat_member(self.group_chat_id, message.from_user.id)
+                    logger.info(f"👑 권한 상태: {chat_member.status}")
+                except Exception as e:
+                    logger.info(f"❌ 권한 확인 실패: {e}")
             else:
                 logger.info(f"❌ 발신자 정보 없음")
                 return
