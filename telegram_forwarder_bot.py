@@ -43,7 +43,7 @@ class TelegramForwarderBot:
                 
                 # JSON 파일의 매핑 로드
                 for mapping in data.get('bot_mappings', []):
-                    username = mapping['source_bot_username'].replace('@', '').lower()
+                    username = mapping['source_bot_username'].replace('@', '')
                     mappings[username] = {
                         'topic_id': mapping['target_topic_id'],
                         'description': mapping.get('description', '')
@@ -51,7 +51,7 @@ class TelegramForwarderBot:
                 
                 # 기존 환경 변수 설정이 있으면 추가 (하위 호환성)
                 if self.legacy_source_bot_username and self.legacy_target_topic_id:
-                    legacy_username = self.legacy_source_bot_username.replace('@', '').lower()
+                    legacy_username = self.legacy_source_bot_username.replace('@', '')
                     if legacy_username not in mappings:
                         mappings[legacy_username] = {
                             'topic_id': self.legacy_target_topic_id,
@@ -67,7 +67,7 @@ class TelegramForwarderBot:
         except FileNotFoundError:
             logger.warning("bot_mapping.json 파일을 찾을 수 없습니다. 환경 변수 설정을 사용합니다.")
             if self.legacy_source_bot_username and self.legacy_target_topic_id:
-                username = self.legacy_source_bot_username.replace('@', '').lower()
+                username = self.legacy_source_bot_username.replace('@', '')
                 return {
                     username: {
                         'topic_id': self.legacy_target_topic_id,
@@ -160,7 +160,7 @@ class TelegramForwarderBot:
             
             # 디버깅 로그 추가
             original_input = args[0]
-            bot_username = args[0].replace('@', '').lower()
+            bot_username = args[0].replace('@', '')
             logger.info(f"디버깅: 원본 입력 '{original_input}' -> 처리된 사용자명 '{bot_username}'")
             
             try:
@@ -252,7 +252,7 @@ class TelegramForwarderBot:
                 )
                 return
             
-            bot_username = args[0].replace('@', '').lower()
+            bot_username = args[0].replace('@', '')
             
             if bot_username in self.bot_mappings:
                 removed_mapping = self.bot_mappings.pop(bot_username)
@@ -380,12 +380,12 @@ class TelegramForwarderBot:
         """봇 사용자에 대한 타겟 토픽 ID를 찾기"""
         # 사용자명으로 매핑 확인
         if bot_user.username:
-            username = bot_user.username.lower()
+            username = bot_user.username.replace('@', '')
             if username in self.bot_mappings:
                 return self.bot_mappings[username]['topic_id']
         
         # 이름으로 매핑 확인 (부분 일치)
-        bot_name = bot_user.first_name.lower()
+        bot_name = bot_user.first_name.replace('@', '').lower()
         for mapped_username, config in self.bot_mappings.items():
             if mapped_username in bot_name or bot_name in mapped_username:
                 return config['topic_id']
