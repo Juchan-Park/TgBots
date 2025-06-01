@@ -324,12 +324,15 @@ class TelegramForwarderBot:
             logger.info(f"✅ 올바른 그룹에서 온 메시지")
             logger.info(f"📍 토픽 ID: {message.message_thread_id} (None이면 메인 채널)")
             
-            # 메인 채널(토픽이 없는 메시지)에서만 감지
-            if message.message_thread_id is not None:
-                logger.info(f"❌ 토픽 메시지이므로 스킵 - 토픽 ID: {message.message_thread_id}")
-                return
+            # 임시로 메인 채널 필터 제거 - 모든 메시지 감지
+            # if message.message_thread_id is not None:
+            #     logger.info(f"❌ 토픽 메시지이므로 스킵 - 토픽 ID: {message.message_thread_id}")
+            #     return
             
-            logger.info(f"✅ 메인 채널 메시지 확인됨")
+            if message.message_thread_id is not None:
+                logger.info(f"🔍 토픽 메시지 감지 - 토픽 ID: {message.message_thread_id}")
+            else:
+                logger.info(f"✅ 메인 채널 메시지 확인됨")
             
             # 발신자 정보 로그
             if message.from_user:
