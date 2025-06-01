@@ -2,7 +2,7 @@ import os
 import json
 import logging
 from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
 from dotenv import load_dotenv
 
 # 환경 변수 로드
@@ -96,10 +96,211 @@ class TelegramForwarderBot:
                 'log_unknown_bots': True
             }
     
+    def save_bot_mappings(self):
+        """봇 매핑을 파일에 저장"""
+        try:
+            # 현재 매핑을 JSON 형태로 변환
+            bot_mappings_list = []
+            for username, config in self.bot_mappings.items():
+                bot_mappings_list.append({
+                    'source_bot_username': username,
+                    'target_topic_id': config['topic_id'],
+                    'description': config['description']
+                })
+            
+            data = {
+                'bot_mappings': bot_mappings_list,
+                'settings': self.settings
+            }
+            
+            with open('bot_mapping.json', 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            logger.info("봇 매핑이 파일에 저장되었습니다.")
+            return True
+        except Exception as e:
+            logger.error(f"봇 매핑 저장 중 오류: {e}")
+            return False
+    
     def setup_handlers(self):
-        """메시지 핸들러 설정"""
-        message_handler = MessageHandler(filters.ALL, self.handle_message)
+        """메시지 및 명령어 핸들러 설정"""
+        # 명령어 핸들러
+        self.application.add_handler(CommandHandler("set", self.handle_set_command))
+        self.application.add_handler(CommandHandler("list", self.handle_list_command))
+        self.application.add_handler(CommandHandler("remove", self.handle_remove_command))
+        self.application.add_handler(CommandHandler("help", self.handle_help_command))
+        
+        # 메시지 핸들러 (명령어가 아닌 일반 메시지)
+        message_handler = MessageHandler(filters.ALL & ~filters.COMMAND, self.handle_message)
         self.application.add_handler(message_handler)
+    
+    async def handle_set_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """봇 매핑 설정 명령어 처리"""
+        try:
+            # 그룹에서만 동작
+            if update.effective_chat.id != self.group_chat_id:
+                return
+            
+            # 관리자 권한 확인 (선택사항)
+            user = update.effective_user
+            chat_member = await context.bot.get_chat_member(self.group_chat_id, user.id)
+            if chat_member.status not in ['administrator', 'creator']:
+                await update.message.reply_text("❌ 이 명령어는 관리자만 사용할 수 있습니다.")
+                return
+            
+            # 명령어 파싱: /set @bot_username topic_id [description]
+            args = context.args
+            if len(args) < 2:
+                await update.message.reply_text(
+                    "❌ 사용법: `/set @bot_username topic_id [설명]`\n"
+                    "예시: `/set @news_bot 123 뉴스 봇 매핑`",
+                    parse_mode='Markdown'
+                )
+                return
+            
+            bot_username = args[0].replace('@', '').lower()
+            try:
+                topic_id = int(args[1])
+            except ValueError:
+                await update.message.reply_text("❌ 토픽 ID는 숫자여야 합니다.")
+                return
+            
+            description = ' '.join(args[2:]) if len(args) > 2 else f"@{bot_username}의 메시지를 토픽 {topic_id}로 포워딩"
+            
+            # 매핑 추가/업데이트
+            old_mapping = self.bot_mappings.get(bot_username)
+            self.bot_mappings[bot_username] = {
+                'topic_id': topic_id,
+                'description': description
+            }
+            
+            # 파일에 저장
+            if self.save_bot_mappings():
+                if old_mapping:
+                    await update.message.reply_text(
+                        f"✅ 봇 매핑이 업데이트되었습니다!\n"
+                        f"@{bot_username}: 토픽 {old_mapping['topic_id']} → {topic_id}\n"
+                        f"설명: {description}"
+                    )
+                else:
+                    await update.message.reply_text(
+                        f"✅ 새 봇 매핑이 추가되었습니다!\n"
+                        f"@{bot_username} → 토픽 {topic_id}\n"
+                        f"설명: {description}"
+                    )
+            else:
+                await update.message.reply_text("❌ 설정 저장 중 오류가 발생했습니다.")
+                
+        except Exception as e:
+            logger.error(f"set 명령어 처리 중 오류: {e}")
+            await update.message.reply_text("❌ 명령어 처리 중 오류가 발생했습니다.")
+    
+    async def handle_list_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """봇 매핑 목록 조회 명령어 처리"""
+        try:
+            # 그룹에서만 동작
+            if update.effective_chat.id != self.group_chat_id:
+                return
+            
+            if not self.bot_mappings:
+                await update.message.reply_text("📝 설정된 봇 매핑이 없습니다.")
+                return
+            
+            message = "📋 **현재 봇 매핑 설정:**\n\n"
+            for i, (username, config) in enumerate(self.bot_mappings.items(), 1):
+                message += f"{i}. @{username} → 토픽 {config['topic_id']}\n"
+                if config['description']:
+                    message += f"   📝 {config['description']}\n"
+                message += "\n"
+            
+            message += "💡 **사용법:**\n"
+            message += "• `/set @bot_username topic_id [설명]` - 매핑 추가/수정\n"
+            message += "• `/remove @bot_username` - 매핑 삭제\n"
+            message += "• `/list` - 매핑 목록 조회"
+            
+            await update.message.reply_text(message, parse_mode='Markdown')
+            
+        except Exception as e:
+            logger.error(f"list 명령어 처리 중 오류: {e}")
+            await update.message.reply_text("❌ 명령어 처리 중 오류가 발생했습니다.")
+    
+    async def handle_remove_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """봇 매핑 제거 명령어 처리"""
+        try:
+            # 그룹에서만 동작
+            if update.effective_chat.id != self.group_chat_id:
+                return
+            
+            # 관리자 권한 확인
+            user = update.effective_user
+            chat_member = await context.bot.get_chat_member(self.group_chat_id, user.id)
+            if chat_member.status not in ['administrator', 'creator']:
+                await update.message.reply_text("❌ 이 명령어는 관리자만 사용할 수 있습니다.")
+                return
+            
+            # 명령어 파싱: /remove @bot_username
+            args = context.args
+            if len(args) != 1:
+                await update.message.reply_text(
+                    "❌ 사용법: `/remove @bot_username`\n"
+                    "예시: `/remove @news_bot`",
+                    parse_mode='Markdown'
+                )
+                return
+            
+            bot_username = args[0].replace('@', '').lower()
+            
+            if bot_username in self.bot_mappings:
+                removed_mapping = self.bot_mappings.pop(bot_username)
+                if self.save_bot_mappings():
+                    await update.message.reply_text(
+                        f"✅ @{bot_username} 매핑이 제거되었습니다.\n"
+                        f"(토픽 {removed_mapping['topic_id']})"
+                    )
+                else:
+                    # 실패 시 복원
+                    self.bot_mappings[bot_username] = removed_mapping
+                    await update.message.reply_text("❌ 설정 저장 중 오류가 발생했습니다.")
+            else:
+                await update.message.reply_text(f"❌ @{bot_username}에 대한 매핑을 찾을 수 없습니다.")
+                
+        except Exception as e:
+            logger.error(f"remove 명령어 처리 중 오류: {e}")
+            await update.message.reply_text("❌ 명령어 처리 중 오류가 발생했습니다.")
+    
+    async def handle_help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """도움말 명령어 처리"""
+        try:
+            # 그룹에서만 동작
+            if update.effective_chat.id != self.group_chat_id:
+                return
+            
+            help_text = """
+🤖 **텔레그램 포워더 봇 도움말**
+
+**명령어:**
+• `/set @bot_username topic_id [설명]` - 봇 매핑 추가/수정
+• `/list` - 현재 매핑 목록 조회
+• `/remove @bot_username` - 봇 매핑 삭제
+• `/help` - 이 도움말 표시
+
+**사용 예시:**
+• `/set @news_bot 123 뉴스 봇`
+• `/set @weather_bot 456`
+• `/remove @news_bot`
+
+**동작 방식:**
+1. 메인 채널에서 매핑된 봇이 메시지 전송
+2. 자동으로 해당 토픽으로 포워딩
+
+**권한:** 관리자만 설정 변경 가능
+            """
+            
+            await update.message.reply_text(help_text, parse_mode='Markdown')
+            
+        except Exception as e:
+            logger.error(f"help 명령어 처리 중 오류: {e}")
+            await update.message.reply_text("❌ 명령어 처리 중 오류가 발생했습니다.")
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """메시지 처리 함수"""
@@ -234,7 +435,9 @@ class TelegramForwarderBot:
         logger.info(f"설정된 봇 매핑: {len(self.bot_mappings)}개")
         
         if not self.bot_mappings:
-            logger.warning("설정된 봇 매핑이 없습니다. bot_mapping.json 파일을 확인해주세요.")
+            logger.warning("설정된 봇 매핑이 없습니다. /set 명령어로 매핑을 추가하세요.")
+        
+        logger.info("사용 가능한 명령어: /set, /list, /remove, /help")
         
         self.application.run_polling(allowed_updates=Update.ALL_TYPES)
 

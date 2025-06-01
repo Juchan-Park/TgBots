@@ -2,6 +2,25 @@
 
 여러 봇이 메인 채널에 보내는 메시지를 각각 다른 토픽으로 자동 포워딩하는 텔레그램 봇입니다.
 
+## 🚀 빠른 시작 (Railway 배포)
+
+### 1. GitHub에 업로드
+```bash
+# 이미 Git이 초기화되어 있습니다
+git remote add origin https://github.com/your-username/your-repo-name.git
+git push -u origin main
+```
+
+### 2. Railway 배포
+1. [Railway.app](https://railway.app)에서 GitHub 로그인
+2. "Deploy from GitHub repo" 선택
+3. 이 저장소 선택
+4. 환경 변수 설정:
+   - `BOT_TOKEN`: 텔레그램 봇 토큰
+   - `GROUP_CHAT_ID`: 그룹 채팅 ID
+
+**📖 자세한 Railway 배포 가이드**: [railway_deploy_guide.md](railway_deploy_guide.md)
+
 ## 기능
 
 - **다중 봇 매핑**: 여러 봇의 메시지를 각각 다른 토픽으로 포워딩
@@ -163,12 +182,24 @@ BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
 GROUP_CHAT_ID=-1001234567890
 ```
 
+## 배포 옵션
+
+### 🌟 Railway (추천 - 무료)
+- **가이드**: [railway_deploy_guide.md](railway_deploy_guide.md)
+- **장점**: 쉬운 설정, GitHub 연동, 무료 플랜
+- **제한**: 월 500시간 실행 시간
+
+### 기타 옵션
+- **상세 가이드**: [deploy_guide.md](deploy_guide.md)
+- Render, Heroku, VPS, 라즈베리 파이 등
+
 ## 주의사항
 
 1. **봇 권한**: 봇이 그룹에서 메시지를 읽고 보낼 수 있는 권한이 있어야 합니다.
 2. **토픽 기능**: 그룹에서 토픽 기능이 활성화되어 있어야 합니다.
 3. **관리자 권한**: 봇을 그룹 관리자로 설정하는 것을 권장합니다.
 4. **토픽 ID**: 각 토픽의 정확한 ID를 확인해야 합니다.
+5. **보안**: `.env` 파일은 GitHub에 업로드하지 마세요 (`.gitignore`에 포함됨).
 
 ## 문제 해결
 
