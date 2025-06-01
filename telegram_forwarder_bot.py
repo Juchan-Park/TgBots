@@ -311,36 +311,59 @@ class TelegramForwarderBot:
         try:
             message = update.message
             if not message:
+                logger.debug("메시지가 없음 - 스킵")
                 return
+            
+            logger.info(f"📨 메시지 수신 - 채팅 ID: {message.chat.id}, 타입: {message.chat.type}")
             
             # 그룹 채팅에서만 동작
             if message.chat.id != self.group_chat_id:
+                logger.info(f"❌ 다른 채팅에서 온 메시지 - 현재: {message.chat.id}, 대상: {self.group_chat_id}")
                 return
+            
+            logger.info(f"✅ 올바른 그룹에서 온 메시지")
+            logger.info(f"📍 토픽 ID: {message.message_thread_id} (None이면 메인 채널)")
             
             # 메인 채널(토픽이 없는 메시지)에서만 감지
             if message.message_thread_id is not None:
+                logger.info(f"❌ 토픽 메시지이므로 스킵 - 토픽 ID: {message.message_thread_id}")
+                return
+            
+            logger.info(f"✅ 메인 채널 메시지 확인됨")
+            
+            # 발신자 정보 로그
+            if message.from_user:
+                logger.info(f"👤 발신자: @{message.from_user.username or 'N/A'} ({message.from_user.first_name})")
+                logger.info(f"🤖 봇 여부: {message.from_user.is_bot}")
+            else:
+                logger.info(f"❌ 발신자 정보 없음")
                 return
             
             # 봇 메시지인지 확인
-            if not message.from_user or not message.from_user.is_bot:
+            if not message.from_user.is_bot:
+                logger.info(f"❌ 사용자 메시지이므로 스킵")
                 return
+            
+            logger.info(f"✅ 봇 메시지 확인됨")
             
             # 매핑된 봇인지 확인하고 타겟 토픽 찾기
             target_topic_id = self.get_target_topic_for_bot(message.from_user)
             
             if target_topic_id is None:
                 if self.settings.get('log_unknown_bots', True):
-                    logger.info(f"매핑되지 않은 봇 메시지: @{message.from_user.username or 'N/A'} ({message.from_user.first_name})")
+                    logger.info(f"❌ 매핑되지 않은 봇 메시지: @{message.from_user.username or 'N/A'} ({message.from_user.first_name})")
                 return
             
-            logger.info(f"봇 메시지 감지: @{message.from_user.username or 'N/A'} -> 토픽 {target_topic_id}")
-            logger.info(f"메시지 내용: {message.text[:50] if message.text else 'Media message'}")
+            logger.info(f"🎯 봇 메시지 감지: @{message.from_user.username or 'N/A'} -> 토픽 {target_topic_id}")
+            logger.info(f"📝 메시지 내용: {message.text[:50] if message.text else 'Media message'}")
             
             # 메시지를 해당 토픽으로 포워딩
             await self.forward_to_topic(message, context, target_topic_id)
             
         except Exception as e:
             logger.error(f"메시지 처리 중 오류 발생: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
     
     def get_target_topic_for_bot(self, bot_user):
         """봇 사용자에 대한 타겟 토픽 ID를 찾기"""
