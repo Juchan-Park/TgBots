@@ -1,0 +1,19 @@
+{
+  "bot_mappings": [
+    {
+      "source_bot_username": "example_bot_a",
+      "target_topic_id": 123,
+      "description": "A 봇의 메시지를 A' 토픽으로 포워딩"
+    },
+    {
+      "source_bot_username": "example_bot_b", 
+      "target_topic_id": 456,
+      "description": "B 봇의 메시지를 B' 토픽으로 포워딩"
+    }
+  ],
+  "settings": {
+    "forward_all_unknown_bots": false,
+    "default_topic_id": null,
+    "log_unknown_bots": true
+  }
+} 
