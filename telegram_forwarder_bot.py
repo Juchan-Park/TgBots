@@ -158,7 +158,11 @@ class TelegramForwarderBot:
                 )
                 return
             
+            # 디버깅 로그 추가
+            original_input = args[0]
             bot_username = args[0].replace('@', '').lower()
+            logger.info(f"디버깅: 원본 입력 '{original_input}' -> 처리된 사용자명 '{bot_username}'")
+            
             try:
                 topic_id = int(args[1])
             except ValueError:
